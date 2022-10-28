@@ -156,14 +156,14 @@ module PtoS = struct
           Sexp_sequence (e1, e2)
 
       | Pexp_constraint (expr, typ), _ ->
-          begin
+          let no_constraint_exp_extra =
             match texpr.exp_extra with
-            | (Texp_constraint _, _, _) :: exp_extra ->
-                let texpr = {texpr with exp_extra} in
-                let expr = expr_aux expr texpr in
-                Sexp_constraint (expr, typ)
-            | _ -> assert false
-          end
+            | (Texp_constraint _, _, _) :: exp_extra -> exp_extra
+            | anything_else -> anything_else
+          in
+          let texpr = {texpr with exp_extra = no_constraint_exp_extra} in
+          let expr = expr_aux expr texpr in
+          Sexp_constraint (expr, typ)
 
       | Pexp_assert expr, Texp_assert texpr ->
           let expr = expr_aux expr texpr in
@@ -178,7 +178,15 @@ module PtoS = struct
                 Sexp_open (ovf, lid, expr)
             | _ -> assert false
           end
-
+      (* Locally abstract types get thrown away;
+         we replace fun (type a) -> E with just E. *)
+      | Pexp_newtype (_, expr), _ ->
+          begin
+            match texpr.exp_extra with
+            | (Texp_newtype _, _, _) :: _ ->
+                (expr_aux expr texpr).sexp_desc
+            | _ -> assert false
+          end
       | _ ->
           raise (UnimplementedConstruct "expression")
     in
